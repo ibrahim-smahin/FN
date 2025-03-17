@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>نظام التقارير المالية</title>
+    <style>
+      :root {
+        --primary: #2c3e50;
+        --secondary: #3498db;
+        --success: #27ae60;
+        --error: #e74c3c;
+        --text: #2c3e50;
+        --bg: #f8f9fa;
+      }
+
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      body {
+        font-family: "Tajawal", sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        line-height: 1.6;
+        padding: 20px;
+      }
+
+      .container {
+        max-width: 1200px;
+        margin: 0 auto;
+      }
+
+      .filters {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+        background: white;
+        padding: 20px;
+        border-radius: 10px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        margin-bottom: 2rem;
+      }
+
+      .filter-group {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+      }
+
+      input,
+      button {
+        padding: 0.8rem;
+        border: 1px solid #ddd;
+        border-radius: 6px;
+        font-size: 1rem;
+      }
+
+      button {
+        background: var(--secondary);
+        color: white;
+        border: none;
+        cursor: pointer;
+        transition: 0.3s;
+      }
+
+      button:hover {
+        opacity: 0.9;
+        transform: translateY(-2px);
+      }
+
+      .data-table {
+        width: 100%;
+        border-collapse: collapse;
+        background: white;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        margin: 1rem 0;
+      }
+
+      .data-table th,
+      .data-table td {
+        padding: 1rem;
+        border: 1px solid #eee;
+        text-align: center;
+      }
+
+      .data-table th {
+        background: var(--primary);
+        color: white;
+      }
+
+      .summary-card {
+        background: white;
+        padding: 2rem;
+        border-radius: 10px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        margin-top: 2rem;
+      }
+
+      .summary-item {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 1rem;
+        padding: 1rem;
+        background: #f8f9fa;
+        border-radius: 6px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>نظام التقارير المالية</h1>
+
+      <div class="filters">
+        <div class="filter-group">
+          <label>من تاريخ</label>
+          <input type="date" id="startDate" />
+        </div>
+        <div class="filter-group">
+          <label>إلى تاريخ</label>
+          <input type="date" id="endDate" />
+        </div>
+        <div class="filter-group">
+          <label>بحث</label>
+          <input
+            type="text"
+            id="searchInput"
+            placeholder="ابحث في التفاصيل..."
+          />
+        </div>
+        <div class="filter-group">
+          <button onclick="loadData()">تحميل البيانات</button>
+          <button onclick="calculateSummary()">حساب المجموع</button>
+        </div>
+      </div>
+
+      <div id="sheetsList"></div>
+      <div id="dataContainer"></div>
+      <div id="summaryContainer"></div>
+    </div>
+
+    <script>
+      const API_URL =
+        "https://script.google.com/macros/s/AKfycbzlrZ-m9JdvD3a5uzuJvDSpVD3VKKBCMAMMEB5EoefZQW-etrCTRLdkc1-h1EA6B8_wXA/exec";
+
+      async function loadData() {
+        try {
+          const response = await fetch(`${API_URL}?action=getSheets`, {
+            method: "GET",
+            mode: "cors", // إضافة هذا
+            cache: "no-cache",
+          });
+
+          if (!response.ok) throw new Error("فشل في الجلب");
+
+          const sheets = await response.json();
+          renderSheets(sheets);
+        } catch (error) {
+          console.error("خطأ في جلب البيانات:", error);
+        }
+      }
+
+      function renderSheets(sheets) {
+        const container = document.getElementById("sheetsList");
+        container.innerHTML = sheets
+          .map(
+            (sheet) => `
+                <div class="sheet-card">
+                    <h3>${sheet.name}</h3>
+                    <button onclick="loadSheetData('${sheet.name}')">عرض البيانات</button>
+                </div>
+            `
+          )
+          .join("");
+      }
+
+      async function loadSheetData(sheetName) {
+        try {
+          const response = await fetch(
+            `${API_URL}?action=getData&sheet=${sheetName}`
+          );
+          const data = await response.json();
+          renderData(data);
+        } catch (error) {
+          console.error("خطأ في جلب البيانات:", error);
+        }
+      }
+
+      function renderData(data) {
+        const container = document.getElementById("dataContainer");
+        let html = `
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            ${Object.keys(data[0])
+                              .map((key) => `<th>${key}</th>`)
+                              .join("")}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${data
+                          .map(
+                            (row) => `
+                            <tr>
+                                ${Object.values(row)
+                                  .map((val) => `<td>${val}</td>`)
+                                  .join("")}
+                            </tr>
+                        `
+                          )
+                          .join("")}
+                    </tbody>
+                </table>
+            `;
+        container.innerHTML = html;
+      }
+
+      async function calculateSummary() {
+        const start = document.getElementById("startDate").value;
+        const end = document.getElementById("endDate").value;
+
+        try {
+          const response = await fetch(
+            `${API_URL}?action=calculateSummary&start=${start}&end=${end}`
+          );
+          const data = await response.json();
+
+          const net =
+            data.transactions * 30 +
+            data.maintenance -
+            data.debts -
+            data.advances;
+
+          const html = `
+                    <div class="summary-card">
+                        <h2>الملخص المالي للفترة ${start} إلى ${end}</h2>
+                        <div class="summary-item">
+                            <span>عدد الحركات:</span>
+                            <span>${data.transactions}</span>
+                        </div>
+                        <div class="summary-item">
+                            <span>مجموع الديون:</span>
+                            <span>${data.debts} ر.س</span>
+                        </div>
+                        <div class="summary-item">
+                            <span>مجموع السلف:</span>
+                            <span>${data.advances} ر.س</span>
+                        </div>
+                        <div class="summary-item">
+                            <span>مجموع الصيانة:</span>
+                            <span>${data.maintenance} ر.س</span>
+                        </div>
+                        <div class="summary-item" style="background: #e3f2fd;">
+                            <span style="font-weight: bold;">الصافي:</span>
+                            <span style="color: var(--success); font-weight: bold;">${net} ر.س</span>
+                        </div>
+                    </div>
+                `;
+          document.getElementById("summaryContainer").innerHTML = html;
+        } catch (error) {
+          console.error("خطأ في الحسابات:", error);
+        }
+      }
+    </script>
+  </body>
+</html>
